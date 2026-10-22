@@ -1,8 +1,7 @@
 {
   "name": "dsh-conv-progress",
-  "version": "0.2.0",
-  "private": true,
-  "description": "实时对话进度分析：host 侧采集 turn/step/tool/todo 事件，估算进度百分比与剩余时间，client 侧在输入框下方渲染常驻进度胶囊与历史任务列表",
+  "version": "0.2.1",
+  "description": "Live per-turn progress capsule for DeepSeek Harness: host-side session-event analysis with an empirical ETA table, rendered under the composer, with a click-to-open turn history.",
   "type": "module",
   "main": "./lib/index.js",
   "exports": {
@@ -46,5 +45,13 @@
     "progress-bar",
     "eta",
     "session-events"
-  ]
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/picklerick422/dsh-conv-progress.git"
+  },
+  "homepage": "https://github.com/picklerick422/dsh-conv-progress#readme",
+  "bugs": {
+    "url": "https://github.com/picklerick422/dsh-conv-progress/issues"
+  }
 }

@@ -13,6 +13,7 @@ conv-progress/
 # ── 本地发布/PR 产物（若需保留请自行 git add -f）──
 .release/
 _publish/
+.pr-work/
 
 # ── 日志与临时文件 ──
 *.log

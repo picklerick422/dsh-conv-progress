@@ -72,7 +72,25 @@ plugins/dsh-conv-progress/
 
 > 本机（`~/.dsh`，profile `web`，dsh `0.2.1-rc.2`）已**热注入并验证通过**，无需重启。
 
-### A. 热注入（当前状态，重启后失效）
+### A. 从 GitHub Release 安装（推荐）
+
+```bash
+# 1) 下载并解包（222KB，含 lib/ assets/ cordis.patch.yml package.json）
+curl -LO https://github.com/picklerick422/dsh-conv-progress/releases/latest/download/dsh-conv-progress.tgz
+mkdir -p /tmp/dsh-conv-progress && tar -xzf dsh-conv-progress.tgz -C /tmp/dsh-conv-progress
+
+# 2) 放进 profile 的 node_modules
+cp -r /tmp/dsh-conv-progress/package ~/.dsh/profiles/web/node_modules/dsh-conv-progress
+
+# 3) profile 的 cordis.patch.yml 追加装配行
+#    - insert:
+#        - id: conv-progress
+#          name: dsh-conv-progress
+```
+
+也可以在插件市场（dsh-market 的 Discover）里搜 `dsh-conv-progress` 一键安装。
+
+### B. 热注入（开发期，重启后失效）
 
 ```
 dev_inject_plugin({ dir: "/home/user/.dsh/dsh-taskbar/plugins/dsh-conv-progress" })
@@ -81,7 +99,7 @@ dev_plugin_status()        # 清单末尾出现 [active] …(dsh-conv-progress)
 dev_reload_package("conv-progress")   # 改代码后热重载
 ```
 
-### B. 持久安装（重启后仍在）
+### C. 持久安装（重启后仍在）
 
 ```
 dev_install_package({ dir: "/home/user/.dsh/dsh-taskbar/plugins/dsh-conv-progress", profile: "web" })
@@ -89,7 +107,7 @@ dev_install_package({ dir: "/home/user/.dsh/dsh-taskbar/plugins/dsh-conv-progres
 
 它会把 `link:` 依赖写进 `~/.dsh/profiles/web/package.json` 的 dependencies + bundles，并建 `node_modules` junction；**这会改 profile 配置**，按全局规范需用户确认后执行。
 
-### C. 手动（等价）
+### D. 手动（等价）
 
 ```bash
 ln -s /home/user/.dsh/dsh-taskbar/plugins/dsh-conv-progress \

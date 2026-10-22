@@ -3,6 +3,8 @@
 > DSH（DeepSeek Harness）插件：在对话输入框**下方常驻**一条任务进度胶囊 —— 运行中显示实时进度条、预估剩余时间与当前阶段；空闲时保持 100%；**点击胶囊可回看该会话每一轮任务的历史记录**。
 >
 > *A DSH plugin that keeps a progress capsule under the composer: live progress bar, ETA and current phase while a turn runs, a permanent 100% state when idle, and a click-to-open history of every turn in the session.*
+>
+> GitHub: <https://github.com/picklerick422/dsh-conv-progress> · Releases: <https://github.com/picklerick422/dsh-conv-progress/releases> · Issues: <https://github.com/picklerick422/dsh-conv-progress/issues>
 
 ![运行中的进度胶囊](plugins/dsh-conv-progress/assets/running.png)
 
@@ -37,7 +39,21 @@
 
 > 已在 dsh `0.2.1-rc.2`、profile `web`、Node 22 上验证。
 
-### A. 热注入（开发期，重启后失效）
+### A. 从 Release 安装（推荐）
+
+```bash
+curl -LO https://github.com/picklerick422/dsh-conv-progress/releases/latest/download/dsh-conv-progress.tgz
+mkdir -p /tmp/dsh-conv-progress && tar -xzf dsh-conv-progress.tgz -C /tmp/dsh-conv-progress
+cp -r /tmp/dsh-conv-progress/package ~/.dsh/profiles/web/node_modules/dsh-conv-progress
+# 再在 ~/.dsh/profiles/web/cordis.patch.yml 追加：
+#   - insert:
+#       - id: conv-progress
+#         name: dsh-conv-progress
+```
+
+或在 dsh-market 的 Discover 里搜 `dsh-conv-progress` 一键安装。
+
+### B. 热注入（开发期，重启后失效）
 
 ```js
 dev_inject_plugin({ dir: "<本仓库>/plugins/dsh-conv-progress" })   // 回执：host ✓ client ✓
@@ -45,7 +61,7 @@ dev_plugin_status()                                                // 清单出�
 dev_reload_package("conv-progress")                                // 改代码后热重载
 ```
 
-### B. 持久安装（重启后仍在）
+### C. 持久安装（重启后仍在）
 
 ```js
 dev_install_package({ dir: "<本仓库>/plugins/dsh-conv-progress", profile: "web" })
@@ -53,7 +69,7 @@ dev_install_package({ dir: "<本仓库>/plugins/dsh-conv-progress", profile: "we
 
 它会把 `link:` 依赖写进 profile 的 `package.json`（dependencies + bundles）并建 `node_modules` junction —— **这会修改 profile 配置**，请自行确认后执行。
 
-### C. 手动安装（等价于 B）
+### D. 手动安装（等价于 C）
 
 ```bash
 ln -s <本仓库>/plugins/dsh-conv-progress  ~/.dsh/profiles/web/node_modules/dsh-conv-progress
