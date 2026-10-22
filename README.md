@@ -162,6 +162,8 @@ node tools/eval-eta.mjs --data data/turns-all.jsonl \
 ```
 
 > `data/`、`probes/`（真实会话日志与 GUI 截图，含个人内容）与 `node_modules/` 已在 `.gitignore` 中排除。
+>
+> Release/npm tarball 只打包运行所需文件（`lib/`、`assets/`、`cordis.patch.yml`、`README.md`、`LICENSE`）；`test/`、`tools/`、`research/`、`docs/` 仅存在于源码仓库。
 
 ## 已知限制
 
