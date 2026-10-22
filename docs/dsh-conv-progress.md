@@ -1,7 +1,7 @@
 # dsh-conv-progress 设计文档
 
-> 版本 v0.1.0 · dsh `0.2.1-rc.2` · 2026-10-22
-> 配套文件：`plugins/dsh-conv-progress/`（代码）、`research/research-progress-eta.md`（调研全文 291 行）、`research/dsh-internals.md`（DSH 内部机制 1463 行）、`research/links.tsv`（45 条链接取证）。
+> 版本 v0.3.0 · dsh `0.2.1-rc.2` · 2026-10-22
+> 配套文件：`lib/`（代码）、`research/research-progress-eta.md`（调研全文 291 行）、`research/dsh-internals.md`（DSH 内部机制 1463 行）、`research/links.tsv`（45 条链接取证）。
 
 ## 1. 摘要
 
@@ -191,7 +191,7 @@ session/event ──▶ onSessionEvent(session, event)
 ```bash
 # 0) 前提：插件目录已有 lib/{index,client,estimator}.js + package.json + cordis.patch.yml
 # 1) 依赖软链（插件目录内，让裸 import 能解析到 dsh 安装的包）
-P=/home/user/.dsh/dsh-taskbar/plugins/dsh-conv-progress
+P=/home/user/.dsh/dsh-taskbar
 D=/home/user/.nvm/versions/node/v22.23.2/lib/node_modules/@deepseek-ai/dsh/node_modules/@deepseek-ai
 mkdir -p $P/node_modules/@deepseek-ai
 for p in dsh-typert-protocol schemastery cordis; do ln -sfn $D/$p $P/node_modules/@deepseek-ai/$p; done
@@ -207,7 +207,7 @@ cd $P && node --test test/estimator.test.mjs && node --input-type=module -e "imp
 
 ### 4.5 view model 契约
 
-见 `plugins/dsh-conv-progress/README.md` §7（`percent/etaMs/phase/todos/confidence/basis/breakdown` 等 25 个字段）。
+见 [`plugin-reference.md`](plugin-reference.md) §7（`percent/etaMs/phase/todos/confidence/basis/breakdown` 等 25 个字段）。
 
 ### 4.6 与"终态推荐"的差距（v0.2 路线）
 
@@ -230,7 +230,7 @@ cd $P && node --test test/estimator.test.mjs && node --input-type=module -e "imp
 | RPC 端到端 | `~/.dsh/conv-progress/debug.jsonl` | 真实会话 `events:680, running:true, turn:1, stepsDone:85` |
 | 样式注入 | 扫描 DOM `data-conv-progress` | 命中 |
 | 真实渲染 | Playwright 打开运行中会话，采样 `.cvp-lane` | 6/6 采样可见，`aria-valuenow=67`，ETA 逐秒递减 |
-| 视觉 | `deviceScaleFactor:2` 截图 | `plugins/dsh-conv-progress/assets/running.png` |
+| 视觉 | `deviceScaleFactor:2` 截图 | `assets/running.png` |
 
 > 唯一已知 console 报错是无关的静态资源 404。
 
@@ -240,8 +240,8 @@ cd $P && node --test test/estimator.test.mjs && node --input-type=module -e "imp
 
 - 调研全文（含 45 条链接与取证状态）：`research/research-progress-eta.md`、`research/links.tsv`
 - DSH 内部机制（事件表、投影契约、slot 契约、4 个静默失败点、风险清单）：`research/dsh-internals.md`
-- 代码：`plugins/dsh-conv-progress/`
-- 实拍截图：`plugins/dsh-conv-progress/assets/{running,states,idle}.png`（仓库内）；原始全套截图在本地 `probes/`（不入库）
+- 代码：`lib/`（仓库根即插件包）
+- 实拍截图：`assets/{running,states,idle}.png`（仓库内）；原始全套截图在本地 `probes/`（不入库）
 
 
 ---
@@ -386,11 +386,11 @@ expectedSteps= stepsDone + medianRemainingSteps(stepsDone)    // 仅展示用
 ```bash
 cd /home/user/.dsh/dsh-taskbar
 node tools/extract-turns.mjs 0 data/turns-all.jsonl          # 全量抽取（约 1–3 分钟）
-node tools/build-eta-model.mjs                               # train 拟合 → plugins/.../lib/eta-model.js
+node tools/build-eta-model.mjs                               # train 拟合 → lib/eta-model.js
 node tools/eval-eta.mjs --data data/turns-all.jsonl \
   --impl tools/fixtures/estimator-v1.mjs --reasons completed --split test --json data/eval-v1.json
 node tools/eval-eta.mjs --data data/turns-all.jsonl \
-  --impl plugins/dsh-conv-progress/lib/estimator.js --reasons completed --split test --json data/eval-v2.json
+  --impl lib/estimator.js --reasons completed --split test --json data/eval-v2.json
 node tools/search-eta.mjs --data data/turns-all.jsonl        # 候选算法 sweep（可选）
 ```
 

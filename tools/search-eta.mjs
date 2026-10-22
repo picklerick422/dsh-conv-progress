@@ -26,7 +26,7 @@ const JSON_OUT = arg('--json', '');
 const SAMPLE_MS = 1000;
 const MAX_SAMPLES = 400;
 
-const v1 = await import(pathToFileURL(resolve(ROOT, 'plugins/dsh-conv-progress/lib/estimator.js')).href);
+const v1 = await import(pathToFileURL(resolve(ROOT, 'lib/estimator.js')).href);
 
 const bucketOf = (sid) => {
   let h = 2166136261;

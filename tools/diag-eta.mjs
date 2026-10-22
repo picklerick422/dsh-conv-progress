@@ -10,7 +10,7 @@
  * Usage: node tools/diag-eta.mjs [--data …] [--split test]
  */
 import { readFileSync } from 'node:fs';
-import { lookupEtaMs } from '../plugins/dsh-conv-progress/lib/eta-model.js';
+import { lookupEtaMs } from '../lib/eta-model.js';
 
 const arg = (name, fallback) => {
   const i = process.argv.indexOf(name);

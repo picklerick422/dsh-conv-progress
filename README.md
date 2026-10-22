@@ -6,15 +6,15 @@
 >
 > GitHub: <https://github.com/picklerick422/dsh-conv-progress> · Releases: <https://github.com/picklerick422/dsh-conv-progress/releases> · Issues: <https://github.com/picklerick422/dsh-conv-progress/issues>
 
-![运行中的进度胶囊](plugins/dsh-conv-progress/assets/running.png)
+![运行中的进度胶囊](assets/running.png)
 
-![三种状态：正常估算 / 低置信度（斜纹 + 仅显示已用）/ 本轮完成](plugins/dsh-conv-progress/assets/states.png)
+![三种状态：正常估算 / 低置信度（斜纹 + 仅显示已用）/ 本轮完成](assets/states.png)
 
 ---
 
 ## 它长什么样
 
-![空闲态：100% + 历史条数](plugins/dsh-conv-progress/assets/idle.png)
+![空闲态：100% + 历史条数](assets/idle.png)
 
 - **运行中**：`● calling bash │ ▓▓▓▓░░ 87% │ ~5m17s left`，进度条 150×3px，ETA 每秒刷新。
 - **低置信度**（当前采样不足以支撑估算）：斜纹不确定条，只显示 `已用 12m40s`，绝不硬凑一个数字。
@@ -42,6 +42,10 @@
 ### A. 从 Release 安装（推荐）
 
 ```bash
+# 直接从 GitHub 仓库安装（仓库根即插件包）
+dsh plugin add github:picklerick422/dsh-conv-progress
+
+# 或用 Release 里的预构建 tarball 手动安装
 curl -LO https://github.com/picklerick422/dsh-conv-progress/releases/latest/download/dsh-conv-progress.tgz
 mkdir -p /tmp/dsh-conv-progress && tar -xzf dsh-conv-progress.tgz -C /tmp/dsh-conv-progress
 cp -r /tmp/dsh-conv-progress/package ~/.dsh/profiles/web/node_modules/dsh-conv-progress
@@ -56,7 +60,7 @@ cp -r /tmp/dsh-conv-progress/package ~/.dsh/profiles/web/node_modules/dsh-conv-p
 ### B. 热注入（开发期，重启后失效）
 
 ```js
-dev_inject_plugin({ dir: "<本仓库>/plugins/dsh-conv-progress" })   // 回执：host ✓ client ✓
+dev_inject_plugin({ dir: "<本仓库>" })                              // 回执：host ✓ client ✓
 dev_plugin_status()                                                // 清单出现 (dsh-conv-progress)
 dev_reload_package("conv-progress")                                // 改代码后热重载
 ```
@@ -64,7 +68,7 @@ dev_reload_package("conv-progress")                                // 改代码�
 ### C. 持久安装（重启后仍在）
 
 ```js
-dev_install_package({ dir: "<本仓库>/plugins/dsh-conv-progress", profile: "web" })
+dev_install_package({ dir: "<本仓库>", profile: "web" })
 ```
 
 它会把 `link:` 依赖写进 profile 的 `package.json`（dependencies + bundles）并建 `node_modules` junction —— **这会修改 profile 配置**，请自行确认后执行。
@@ -72,7 +76,7 @@ dev_install_package({ dir: "<本仓库>/plugins/dsh-conv-progress", profile: "we
 ### D. 手动安装（等价于 C）
 
 ```bash
-ln -s <本仓库>/plugins/dsh-conv-progress  ~/.dsh/profiles/web/node_modules/dsh-conv-progress
+ln -s <本仓库>  ~/.dsh/profiles/web/node_modules/dsh-conv-progress
 # 再在 ~/.dsh/profiles/web/cordis.patch.yml 追加：
 #   - insert:
 #       - id: conv-progress
@@ -82,7 +86,7 @@ ln -s <本仓库>/plugins/dsh-conv-progress  ~/.dsh/profiles/web/node_modules/ds
 **依赖解析**：`lib/index.js` 以裸 import 引用 `@deepseek-ai/{dsh-typert-protocol,schemastery}`，需从 dsh 安装目录解析。仓库不提交 `node_modules`；从源码本地开发时重建软链：
 
 ```bash
-cd plugins/dsh-conv-progress
+cd <本仓库>
 D=<dsh 安装目录>/node_modules/@deepseek-ai      # 如 ~/.nvm/.../node_modules/@deepseek-ai/dsh/node_modules/@deepseek-ai
 mkdir -p node_modules/@deepseek-ai
 for p in dsh-typert-protocol schemastery cordis; do ln -sfn "$D/$p" "node_modules/@deepseek-ai/$p"; done
@@ -121,7 +125,7 @@ ETA 不是公式外推，而是**查表**：`lib/eta-model.js` 是 1198 个会�
 ## 目录结构
 
 ```
-plugins/dsh-conv-progress/      # 插件本体（可单独作为 DSH 插件安装）
+.                               # ← 仓库根就是插件包（可直接 dsh plugin add github:…）
 ├── lib/
 │   ├── index.js                # 宿主：session/event 采集 + 状态机 + @Remote('snapshot'/'history')
 │   ├── estimator.js            # 纯函数估算器：查表 + 时间进度 + 平滑
@@ -131,7 +135,7 @@ plugins/dsh-conv-progress/      # 插件本体（可单独作为 DSH 插件安�
 ├── test/                       # node:test（10 估算器 + 7 历史，共 17 用例）
 ├── assets/                     # README 截图
 ├── cordis.patch.yml            # 宿主装配
-└── package.json
+└── package.json                # dsh.bundle + dsh.client 声明
 tools/                          # 数据管线：抽取 → 拟合 → 离线评估（含 v1 基线 fixture）
 docs/dsh-conv-progress.md       # 设计文档：调研 / 可行性 / 实现 / 验证 / 算法
 research/                       # 立项调研：同类项目与 DSH 内部机制
@@ -140,7 +144,7 @@ research/                       # 立项调研：同类项目与 DSH 内部机�
 ## 开发
 
 ```bash
-cd plugins/dsh-conv-progress
+cd <本仓库>
 node --test test/estimator.test.mjs test/history.test.mjs   # 17 pass / 0 fail
 node --check lib/client.js && node --check lib/index.js
 ```
@@ -150,9 +154,9 @@ node --check lib/client.js && node --check lib/index.js
 ```bash
 node tools/extract-turns.mjs 0 data/turns-all.jsonl     # 读 ~/.dsh/sessions，产出每轮紧凑记录
 node tools/build-eta-model.mjs --data data/turns-all.jsonl \
-  --out plugins/dsh-conv-progress/lib/eta-model.js      # 只用 train 划分拟合生存表
+  --out lib/eta-model.js      # 只用 train 划分拟合生存表
 node tools/eval-eta.mjs --data data/turns-all.jsonl \
-  --impl plugins/dsh-conv-progress/lib/estimator.js --reasons completed --split test --json data/eval-v2.json
+  --impl lib/estimator.js --reasons completed --split test --json data/eval-v2.json
 node tools/eval-eta.mjs --data data/turns-all.jsonl \
   --impl tools/fixtures/estimator-v1.mjs --reasons completed --split test --json data/eval-v1.json   # 基线
 ```

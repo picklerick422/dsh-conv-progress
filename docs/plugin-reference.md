@@ -1,14 +1,16 @@
-# dsh-conv-progress
+# dsh-conv-progress · 详细参考
 
+> 这是插件包的完整参考（功能明细、架构、数据契约、验证记录）。快速上手看 [根 README](../README.md)；设计与算法推导看 [`dsh-conv-progress.md`](dsh-conv-progress.md)。
+>
 > DSH（DeepSeek Harness）插件：在当前对话的输入框下方，**常驻**显示任务进度胶囊（运行中 = 实时进度条 + 预估剩余时间 + 当前阶段；无任务 = 100%），**点击胶囊可查看该会话的历史任务记录**。
 
-![运行中的进度胶囊](assets/running.png)
+![运行中的进度胶囊](../assets/running.png)
 
 上图是本插件在真实 GUI（`:3080`）中的实拍：`● calling bash │ ▓▓▓▓░░ 87% │ ~5m17s left`。
 
-![三种状态：正常估算 / 低置信度 / 本轮完成](assets/states.png)
+![三种状态：正常估算 / 低置信度 / 本轮完成](../assets/states.png)
 
-空闲态（100% + 历史条数）见 [`assets/idle.png`](assets/idle.png)。
+空闲态（100% + 历史条数）见 [`assets/idle.png`](../assets/idle.png)。
 
 ---
 
@@ -55,7 +57,7 @@ session/event │  ConvProgressService                                │
 ## 3. 目录
 
 ```
-plugins/dsh-conv-progress/
+.                       # 仓库根 = 插件包
 ├── lib/
 │   ├── index.js        # 宿主：事件采集 + 状态机 + @Remote('snapshot') + @Remote('history')（529 行）
 │   ├── estimator.js    # 纯函数估算器：查表 + 时间进度 + 平滑（297 行）
@@ -93,7 +95,7 @@ cp -r /tmp/dsh-conv-progress/package ~/.dsh/profiles/web/node_modules/dsh-conv-p
 ### B. 热注入（开发期，重启后失效）
 
 ```
-dev_inject_plugin({ dir: "/home/user/.dsh/dsh-taskbar/plugins/dsh-conv-progress" })
+dev_inject_plugin({ dir: "/home/user/.dsh/dsh-taskbar" })
 # 回执：host ✓  client ✓
 dev_plugin_status()        # 清单末尾出现 [active] …(dsh-conv-progress)
 dev_reload_package("conv-progress")   # 改代码后热重载
@@ -102,7 +104,7 @@ dev_reload_package("conv-progress")   # 改代码后热重载
 ### C. 持久安装（重启后仍在）
 
 ```
-dev_install_package({ dir: "/home/user/.dsh/dsh-taskbar/plugins/dsh-conv-progress", profile: "web" })
+dev_install_package({ dir: "/home/user/.dsh/dsh-taskbar", profile: "web" })
 ```
 
 它会把 `link:` 依赖写进 `~/.dsh/profiles/web/package.json` 的 dependencies + bundles，并建 `node_modules` junction；**这会改 profile 配置**，按全局规范需用户确认后执行。
@@ -110,7 +112,7 @@ dev_install_package({ dir: "/home/user/.dsh/dsh-taskbar/plugins/dsh-conv-progres
 ### D. 手动（等价）
 
 ```bash
-ln -s /home/user/.dsh/dsh-taskbar/plugins/dsh-conv-progress \
+ln -s /home/user/.dsh/dsh-taskbar \
       ~/.dsh/profiles/web/node_modules/dsh-conv-progress
 # 再在 profile 的 cordis.patch.yml 追加：
 #   - insert:

@@ -7,7 +7,7 @@
  * Usage: node tools/diag-wrapper.mjs [--data …] [--split test]
  */
 import { readFileSync } from 'node:fs';
-import { createModel, beginTurn, observeTurn, estimate } from '../plugins/dsh-conv-progress/lib/estimator.js';
+import { createModel, beginTurn, observeTurn, estimate } from '../lib/estimator.js';
 
 const arg = (name, fallback) => {
   const i = process.argv.indexOf(name);

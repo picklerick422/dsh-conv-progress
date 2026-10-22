@@ -1,6 +1,6 @@
 {
   "name": "dsh-conv-progress",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Live per-turn progress capsule for DeepSeek Harness: host-side session-event analysis with an empirical ETA table, rendered under the composer, with a click-to-open turn history.",
   "type": "module",
   "main": "./lib/index.js",

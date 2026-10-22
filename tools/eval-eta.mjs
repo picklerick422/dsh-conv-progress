@@ -26,7 +26,7 @@ const arg = (name, fallback) => {
 };
 
 const DATA = arg('--data', resolve(ROOT, 'data/turns-all.jsonl'));
-const IMPL = resolve(arg('--impl', resolve(ROOT, 'plugins/dsh-conv-progress/lib/estimator.js')));
+const IMPL = resolve(arg('--impl', resolve(ROOT, 'lib/estimator.js')));
 const SESSIONS = Number(arg('--sessions', '0')) || Infinity;
 const SPLIT = arg('--split', 'all');       // train | test | all
 const REASONS = (arg('--reasons', 'all') ?? 'all').split(','); // all | completed | completed,error…

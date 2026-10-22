@@ -1,6 +1,6 @@
 /**
  * build-eta-model.mjs — fit the empirical survival tables and emit
- * plugins/dsh-conv-progress/lib/eta-model.js.
+ * lib/eta-model.js.
  *
  * Model target: ETA = *conditional median of remaining wall-clock time* given
  * only what the plugin can observe while a turn runs:
@@ -33,7 +33,7 @@ const arg = (name, fallback) => {
   return i === -1 ? fallback : process.argv[i + 1];
 };
 const DATA = arg('--data', resolve(ROOT, 'data/turns-all.jsonl'));
-const OUT = arg('--out', resolve(ROOT, 'plugins/dsh-conv-progress/lib/eta-model.js'));
+const OUT = arg('--out', resolve(ROOT, 'lib/eta-model.js'));
 const PSEUDO_COUNT = 40;
 /** Fitted quantile of the remaining-time distribution (0.5 = MAE-optimal in theory). */
 const QUANTILE = Number(arg('--quantile', '0.5'));
