@@ -1,0 +1,32 @@
+# ── 依赖（含插件目录内的 @deepseek-ai/* 软链：指向本机 dsh 安装，绝不能入库）──
+node_modules/
+
+# ── 本机运行时数据 / 生成物（体积大，且含真实会话内容与隐私）──
+data/
+probes/
+_backups/
+.mnemon/
+*.ndjson
+debug.jsonl
+conv-progress/
+
+# ── 本地发布/PR 产物（若需保留请自行 git add -f）──
+.release/
+_publish/
+
+# ── 日志与临时文件 ──
+*.log
+npm-debug.log*
+*.tmp
+*.swp
+*~
+.verify/
+.cache/
+*.tsbuildinfo
+
+# ── 系统 / 编辑器 / 工具链 ──
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+.history/
