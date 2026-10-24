@@ -395,3 +395,244 @@ node tools/search-eta.mjs --data data/turns-all.jsonl        # 候选算法 swee
 ```
 
 > 注意：本机所有 node 脚本都要 `env -u NODE_OPTIONS -u NODE_USE_ENV_PROXY -u HTTP_PROXY -u HTTPS_PROXY -u http_proxy -u https_proxy node ...` 运行，避免 dsh 注入的代理环境变量干扰。
+
+---
+
+## 13. ETA 算法 v3：分位 GBM + 保形区间 + 校准置信度（v0.4.0）
+
+> 需求来源：「根据已有的日志与会话数据重新评估预计耗时算法，然后优化算法」。这一节回答五个问题：误差到底来自哪里、能不能靠「先问大模型」要输入、开源界怎么做、新策略是什么、实测有没有变好。
+
+### 13.1 结论先行
+
+| 项 | v2（生存表 + 时间进度） | v3（分位 GBM） | 变化 |
+| --- | --- | --- | --- |
+| MAE | 4.4m | **2.14m** | −51% |
+| medianAE | 2.2m | **43s** | −97% |
+| MAPE（相对误差，capped 5×） | 1.41 | **0.845** | −40% |
+| ±30% 命中率 | 24.9% | **54.8%** | ×2.2 |
+| ±50% 命中率 | 37.4% | **66.0%** | ×1.8 |
+| 80% 区间覆盖 | 无区间 | **76.5–79.7%**（按桶） | 新增 |
+| 置信度可用性 | 只有 high/medium，无 low，无区分度 | 三档且 MAPE 单调（0.19 / 0.62 / 1.24） | 重定义 |
+
+根因：**v2 只看「已完成几步 + 已用多久」，而同一状态下剩余时间本身离散极大**（cell 内 IQR/中位数中位 1.39、p90 3.85）。信息上限实验显示：即使给出完美的「本轮总步数」oracle，MAE 也只能到 59.1s —— 也就是说误差主要不是「拟合不精」，而是**缺少任务规模的先验**。
+
+### 13.2 误差来源（v2，test 137,263 采样，全部有量化证据）
+
+| 证据 | 数值 | 说明 |
+| --- | --- | --- |
+| MSE 分解 | bias² 6.7% / variance 93.3% | 不是系统性偏了 7%，而是**方差主导** |
+| 分轮时长 bias | <30s **+1.9m**（恒定高估）→ >15m **−7.5m**（低估） | 短轮一律偏长、长轮一律偏短：模型不知道「这轮有多大」 |
+| 信息上限（cell 中位 oracle） | MAE 3.9m vs v2 4.4m | 只靠 (k, elapsed) 已接近天花板 |
+| cell 内离散度 | IQR/中位 p50=1.39、p90=3.85 | 同状态下剩余时间可以差 4 倍 |
+| 冷启动 | 第一轮 MAE 5.7m vs 稳定后 4.3m | 缺会话节奏（tempo）信息 |
+| 置信度 | v2 在 test 上 never 输出 low；high(4.4m)≈medium(3.8m) | 标签没有区分度，等于没有置信度 |
+
+补充：v2 还有一个「混合单位」缺陷——进度用「步数当量」，ETA 用「墙钟时间」，两者在计划完成度突变时会给出互相矛盾的读数。
+
+### 13.3 「先问大模型要输入」的评估
+
+思路：开轮前让 LLM 先报一次「本轮大概几步/多久」，把结果当先验喂给计算器。
+
+- **可行性**：可做（多一次轻量调用，或复用首轮 assistant 输出）；风险是 LLM 自报 ETA 有**已知的 4–7× 系统性高估**（arXiv 2604.00010/2609.08589，任务前尤甚），且引入延迟与成本。
+- **收益（用真实数据模拟）**：把「真实总步数」当完美先验 → MAE 59.1s；把先验做成 lognormal 噪声：
+  σ=0.15 → 1.3m；0.30 → **1.6m**；0.45 → 1.8m；0.60 → 1.9m；0.90 → 2.0m（无先验 2.1m）。
+- **现实校准**：今天的 `todo_write` 计划已经是现成的先验，实测精度 `prior_total = plan_n × 8.7` 的隐含 **σ≈0.65** → 只能带来有限收益（v2→v3 在有计划的轮上 4.7m→1.6m，主要还是模型本身的功劳）。
+- **定位（推荐）**：**不要**问 LLM 要「秒数」，要「本轮计划步数 + 会用到哪几类工具」这类**结构性输入**，折成先验特征入模；且必须先校准（用历史 session 的「自报 vs 实际」做 ratio 修正），否则会重复文献里的高估。
+- **本期取舍**：v3 只用**已观测信号**（计划条数、提示词形状、会话 tempo、步内工具状态），没有引入 LLM 调用；把「先验特征」列为下一轮实验项（见 13.7）。
+
+### 13.4 开源调研摘要（完整表格见 `research/eta-strategy-research.md`，51 条链接全部 HTTP 200）
+
+| # | 方法 | 代表 | 适用/借鉴 | 不适用原因 |
+| --- | --- | --- | --- | --- |
+| 1 | 前缀→剩余时间（过程挖掘） | arXiv 1805.02896、PGTNet 2404.06267 | 问题同构：case=turn、event=step，用**前缀特征**回归 | 数据集偏业务流程，需自建采样器（已自建） |
+| 2 | 离散时间 hazard / 生存分析 | Nnet-survival 1805.00917、sksurv、lifelines | 天然处理删失（aborted 轮），可给分位 | 纯生存模型表达力不如 GBM；采用其**分位 + 删失**思想 |
+| 3 | CQR + ACI 在线校准 | 1905.03222、2106.00170 | 保形区间 + 按轮自适应的覆盖率保证 | 离线阶段用**分桶静态保形**，在线 ACI 留下轮实现 |
+| 4 | Normalized / Mondrian 保形 | crepes、MAPIE | 按难度归一化、按类别（k/ETA 桶）分层区间 | 直接用会得到过宽区间；采用**按预测 ETA 分桶**的相对分位 |
+| 5 | LLM 两阶段先验 | LLM-Prior 2508.03766、AutoElicit 2411.17284 | 无现成开源产品；思路=先要结构化先验再算 | 引入调用延迟/成本，且需校准，列 13.7 实验 |
+| — | 纯速率法 | tqdm / rich / indicatif | 只借**展示层**（平滑/节流/不确定态） | 假设固定总工作量，agent 场景不成立 |
+| — | LLM 自报进度/ETA | 2604.00010、2609.08589 | ❌ | 任务前系统性高估 4–7×，只可做先验不可直接显示 |
+
+### 13.5 新策略设计
+
+**输入（32 维，全部在线可得，无一前视）**——分四组：
+
+- `core`（9）：`k`、`elapsed_ms`、`step_elapsed_ms`、`step_open`、`step_has_tools`、`tools_done_in_step`、`pending_tools`、`last_tool_cat`、`since_last_evt_ms`
+- `pace`（6）：`prev_step_mean_ms`、`prev_step_max_ms`、`step_ms_ema`、`n_prev_turns`、`prev_turn_dur_med`、`prev_turn_steps_med`
+- `turnmeta`（12）：提示词形状 8 个（长度/行数/代码块/命令/@提及/问号/图片/CJK 比例）+ `plan_n/plan_done/plan_has` + `turn_index`
+- `tools`（5）：本轮已完成调用里 bash/edit/read/image/agent 各多少
+
+**计算流程**（全部在宿主侧，~50µs/次）：
+
+1. 宿主 `session/event` → `lib/features.js` 的事件状态机 → 32 维特征向量（与训练表逐特征一致，见 `tools/check-features.mjs`）。
+2. `lib/eta-v3-model.js`（400 棵树 × 31 叶，759KB，纯 JSON 树）→ `log1p(remaining_ms)` 的中位数预测 → 反变换得 `etaMs`。
+3. `calib` 分桶（按预测 ETA 落桶）给出相对分位 → 保形区间 `[lo, hi] = etaMs × (1 + q10/q90)`，口径为「真实剩余时间落在区间内的概率 ≈80%」。
+4. 进度：`timePercent = elapsed / (elapsed + etaMs)`；有计划时 `0.6×planPercent + 0.4×timePercent`（计划全完成则只用时间项，避免「计划完成但仍在干活」被钉在 100%）；轮内单调、cap 0.97。
+5. 置信度：`calibration[bucket].mape_calib` → `high ≤0.35 / medium ≤0.90 / low >0.90`；首轮（`n_prev_turns==0`）再降一档。低置信度时前端只显示已用时间（不显示 ETA），与 v2 行为一致。
+
+**为什么是「相对误差」定级**：绝对 MAE 由轮长主导（长轮 4.4m vs 短轮 47s），若按绝对误差分档，最不准的长轮会被判为最可信。按相对误差分档后三档 MAPE 单调（0.19 / 0.62 / 1.24），且三档区间覆盖率都≈78–80%，语义自洽。
+
+### 13.6 实测对比（同一 test 划分，JS 线上路径）
+
+整体：
+
+| 指标 | v2 | v3 |
+| --- | --- | --- |
+| MAE | 4.4m | **2.14m** |
+| medianAE | 2.2m | **43s** |
+| bias | −2.0m | −1.0m |
+| MAPE（capped 5×） | 1.41 | **0.845** |
+| ±30% / ±50% | 24.9% / 37.4% | **54.8% / 66.0%** |
+
+分轮时长（MAE）：
+
+| 时长 | v2 | v3 |
+| --- | --- | --- |
+| <30s | 1.9m | **1.17m** |
+| 30–120s | 1.8m | **48s** |
+| 2–5m | 1.7m | **48s** |
+| 5–15m | 3.1m | **1.48m** |
+| >15m | 9.0m | **4.36m** |
+
+分已完成步数 k / 分 warmup 见 `tools/eval-v3.mjs` 输出（每档 ±30% 命中率 48.6–70.7%）。
+
+区间与置信度：
+
+| 桶（预测 ETA） | n | 80% 区间实测覆盖 | 中位相对宽度 |
+| --- | --- | --- | --- |
+| <1m | 8,536 | 78.9% | 1.12 |
+| 1–3m | 53,292 | 79.7% | 1.34 |
+| 3–10m | 57,727 | 79.2% | 1.87 |
+| 10–30m | 16,937 | 76.8% | 0.62 |
+| 30–60m | 771 | 76.5% | 0.37 |
+
+| 置信档 | n | 实测 MAPE | ±30% | 区间覆盖 |
+| --- | --- | --- | --- | --- |
+| high | 17,708 | **0.19** | 81.4% | 76.8% |
+| medium | 57,727 | 0.62 | 59.6% | 79.2% |
+| low | 61,828 | 1.24 | 42.8% | 79.6% |
+
+### 13.7 未验证 / 下一步
+
+- **未验证**：在线 ACI（真实流量上逐轮自适应覆盖率）；真实 LLM 先验注入（当前只有 σ 模拟与历史 todo 计划校准）；跨模型（provider/model）差异；超长会话（>6h）区间是否仍覆盖。
+- **已知残余**：首轮（warmup=0）MAE 3.2m，仍是全场最差；短轮（<30s）仍系统性高估（+1.16m，因为提示词看起来像长任务）；轮尾最后几分钟仍偏长（信息论极限，v2 已记录 +245s，v3 未专门优化）。
+- **下一步**：①把「计划先验」从常数 8.7 步/todo 换成按任务类型分桶；②冷启动用「同类提示词的历史轮时长」做 kNN 先验；③评估在线 ACI 替换静态分桶；④若用户接受一次额外 LLM 调用，按 13.3 的结构化先验方案做 A/B。
+
+### 13.8 复现命令
+
+```bash
+cd /home/user/.dsh/dsh-taskbar
+export TMPDIR=$PWD/.cache/tmp          # 本机 /tmp 已满
+node tools/extract-turns2.mjs           # session 日志 → data/turns2.jsonl
+node tools/dump-samples.mjs             # → data/samples.csv（1.34M 采样）
+python3 tools/analysis/eta_report.py --trees 400 --leaves 31 \
+  --export data/eta-v3-model-final.json --cache-model ""   # 训练 + 导出 + 报表
+node tools/check-features.mjs --sessions 10                # 训练表 vs 生产特征一致性
+node tools/eval-v3.mjs --model data/eta-v3-model-final.json --out data/v3-pred.csv
+node --test test/estimator.test.mjs test/estimator-v3.test.mjs test/history.test.mjs
+```
+
+> 本机跑 node 脚本建议带 `env -u NODE_OPTIONS -u NODE_USE_ENV_PROXY -u HTTP_PROXY -u HTTPS_PROXY -u http_proxy -u https_proxy`，避免 dsh 注入的代理环境变量干扰。
+
+## 14. 提示词注入先验：实现与实测（v0.4.1，默认关闭）
+
+> 需求来源：「做一版提示词注入，然后实验测试比对一下」。结论先给：**实现了，也测了，但当前形态没有收益**——所以默认关闭，只保留为可开关的实验分支。下面是完整数据。
+
+### 14.1 实现形态
+
+「提示词注入」在本插件里不是往用户会话里插文字，而是**一次旁路调用**：轮次开始时，用用户的那条提示词额外问一次 LLM「这个任务大概多少步 / 多少分钟」，拿到结构化先验再与模型 ETA 混合。会话日志、用户提示词、主模型对话都**不动**（插件整体仍是只读）。
+
+- `lib/prior.js`
+  - `PRIOR_SYSTEM`：严格 JSON 契约 `{"steps":int,"tools":int,"minutes":number,"confidence":"low|medium|high"}`，明确「按 step 数计、含工具时间、宁可校准不要乐观」。
+  - `buildPriorMessage({prompt,cwd,model,turn})`：用户提示词截断 4000 字符 + 工作目录末两级 + 模型 + 轮次。
+  - `parsePriorAnswer(text)`：只在响应里截取第一个 JSON 对象，clamp `steps 1–500 / minutes 0–2400 / tools 0–2000`，**永不抛**；解析失败一律退化为「没有先验」。
+  - `blendWithPrior(etaMs, priorMinutes, weight)`：log 空间线性混合，`weight=0` 原样返回。
+  - `createPriorRequester({stream, resolveTarget, timeoutMs})`：每轮至多一次、同轮共享 in-flight、`AbortController` 超时（默认 2500ms）、失败返回 `null`。
+- 宿主（`lib/index.js`）
+  - `startPrior(state, session)`：`turn` 开始后第一条真实用户消息触发，**fire-and-forget**，主链路（进度条轮询）永不等待它。
+  - `priorRequesterFor(state)`：`this.ctx.get('llm')` 取 `llm.stream`，provider/model 默认取 `agentDefaultModel.currentSelection()`，可用 Config 覆盖。
+  - `buildSnapshot()`：`prior.enabled && state.prior !== null` 时按 `blendWeight` 混合 `etaMs`；快照新增 `prior`、`priorEnabled` 字段。
+- Config
+
+  | 键 | 默认 | 说明 |
+  | --- | --- | --- |
+  | `prior.enabled` | `false` | 打开旁路先验调用 |
+  | `prior.provider` / `prior.model` | `''` | 空 = 跟随当前默认模型选择 |
+  | `prior.timeoutMs` | `2500` | 单次调用超时，超时即放弃该轮先验 |
+  | `prior.blendWeight` | `0` | 与模型 ETA 的 log 空间混合权重；实测最优值就是 0 |
+
+### 14.2 实验设计
+
+- **样本**：从 7,178 轮里按 session hash 分层抽 300 train + 200 test 轮，取真实用户提示词（`tools/extract-prompts.mjs`，含 `promptChars / actualSteps / durMs`；原始文本只落本地 `data/prompt-sample.jsonl`，不入库）。
+- **调用**：`deepseek-flash`（DeepSeek-V4.1-Flash）、`temperature 0`、`response_format: json_object`、并发 10、失败 4 次指数退避、按 `sid#turn` 缓存（`tools/gen-priors.mjs`）。
+- **两个问法**：
+  - v1 = 直接要数值（`data/priors.jsonl`）；
+  - v2 = 只选分桶（steps 9 桶 / minutes 7 桶，配 4 条真实历史示例做 few-shot），再映射到桶中点（`data/priors-v2.jsonl`）。
+- **评估**（`tools/analysis/prior_study.py`）：
+  1. 先验自身准度：σ(log prior/actual)、bias、spearman、steps MAE —— 与 §12 的「先验噪声 σ 曲线」同一尺度，σ≤0.3 才有收益；
+  2. 把先验做成 4 个额外特征（`prior_log_steps / prior_log_minutes / prior_conf / prior_steps_per_elapsed_min`），在**同一批 train 行**上重训同架构 GBM（v3p），与同子集无先验版（v3r）和线上 v3 在同一批 test 行比对；
+  3. log 空间混合权重扫描 `blend = exp((1-w)·ln(v3) + w·ln(prior_minutes·60000))`。
+
+### 14.3 结果
+
+先验自身准度（500 轮）：
+
+| 变体 | 可解析 | σ(log steps ratio) | bias | spearman | steps MAE | minutes bias |
+| --- | --- | --- | --- | --- | --- | --- |
+| v1 直接数值 | 433/500（87%） | **1.314** | −0.152 | 0.319 | 21.0 步 | **+1.053（≈2.9× 高估）** |
+| v2 分桶+few-shot | 152/500（30%） | 1.242 | −0.036 | 0.32 | 16.9 步 | — |
+
+配对模型（174 个 test 轮 / 39,413 采样，同一批行）：
+
+| 方案 | MAE | medianAE | MAPE | ±30% |
+| --- | --- | --- | --- | --- |
+| v3（线上，全量 train） | **1.91m** | 34.7s | 0.701 | 61.5% |
+| v3r（同子集，无先验） | 2.17m | 32.1s | 0.735 | 57.0% |
+| v3p（同子集，+先验特征） | 2.64m | 54.9s | 0.774 | 49.7% |
+
+⇒ 加先验特征让误差**变差 22%**（子集只有 255 个 train 轮，先验自身的噪声直接进了模型）。
+
+混合权重扫描（98,949 条 test 采样）：
+
+| 权重 w | MAE | medianAE | bias | ±30% |
+| --- | --- | --- | --- | --- |
+| 0（纯 v3） | **1.92m** | 33.2s | −61.7s | 62.8% |
+| 0.05 | 2.00m | 43.2s | −46.1s | 60.6% |
+| 0.1 | 2.18m | 62.0s | −28.7s | 55.8% |
+| 0.3 | 3.37m | 152.4s | +60.9s | 28.3% |
+| 1.0（纯先验） | 17.27m | 838s | **+918.7s** | 9.4% |
+
+⇒ **最优权重就是 0**：任何正权重都让 ETA 更差。
+
+### 14.4 为什么没有收益
+
+1. **信息不够**：提示词只描述「要做什么」，不描述仓库现状、工具链代价、用户偏好；§13 的特征重要性也表明 `prompt_*` 合计只占 ~16% 的 gain，模型规模主要靠 pace/elapsed 学。
+2. **噪声远高于门槛**：σ≈1.3，而 §12 的噪声模拟显示 σ≤0.3 才有明显收益，σ≈0.9 时几乎无价值；连现有 todo 计划的隐含先验（σ≈0.65）都已经「几乎无收益」。
+3. **系统性高估**：`minutes` 平均高估 2.9×，与文献一致（任务前自报 ETA 系统性高估 4–7×，arXiv 2604.00010 / 2609.08589）。
+4. **分桶没有救回来**：要求模型从固定桶里选，只把解析成功率从 87% 打到 30%，σ 仅从 1.31 降到 1.24。
+
+### 14.5 结论与默认值
+
+- 保留实现，**默认关闭**（`prior.enabled: false`、`prior.blendWeight: 0`）；打开也不会影响无先验时的行为（先验缺失 → 走原 v3 路径）。
+- 值得重开的条件（都未验证）：有**真正可靠的任务规模来源**（同仓库同类任务的历史分位、CI 用例数、issue 的结构化字段），或换用校准更好的模型/提示（多次自一致投票、让模型只判「这是 1 步 / 10 步 / 50 步量级」）。
+- 未验证：真实打开后对主会话延迟/并发的影响（侧调用不阻塞 UI，但会占一次 LLM 并发）；不同 provider/model 的先验质量；在线 ACI 与先验联合校准。
+
+### 14.6 复现命令
+
+```bash
+cd /home/user/.dsh/dsh-taskbar
+export TMPDIR=$PWD/.cache/tmp
+node tools/extract-prompts.mjs --train 300 --test 200   # → data/prompt-sample.jsonl
+node tools/gen-priors.mjs --variant v1                   # → data/priors.jsonl
+node tools/gen-priors.mjs --variant v2                   # → data/priors-v2.jsonl
+python3 tools/analysis/prior_study.py --priors data/priors.jsonl   # → data/prior-study.json
+node --test test/prior.test.mjs                          # 11 例
+```
+
+### 14.7 附带修复：事件监听异常会冻结进度条
+
+实现这一版时在真实 GUI 复现出一个**线上 bug**：`applyEvent()` 在 `user/message` 分支里引用了不存在的 `session` 变量 → 抛 `ReferenceError`；由于 `session/event` 监听是 fire-and-forget，一次抛出之后该会话的后续事件全部丢失，胶囊会永久停在旧轮次（实测表现为「47h44m elapsed / 3 steps」的僵尸状态）。修复：
+
+1. `applyEvent(state, event, session)` 正确传参；
+2. `onSessionEvent` 用 `try/catch` 包住 `applyEvent`，单条坏事件只记 debug、不再中断事件流。
+
+回归验证：`node --test` 37 例全绿（新增 `test/prior.test.mjs` 11 例），`dev_reload_package` 后 GUI 实测胶囊恢复实时（`calling bash 34m03s elapsed · 103/126 steps`）。

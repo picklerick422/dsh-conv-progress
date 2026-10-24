@@ -1,0 +1,51 @@
+https://github.com/scikit-learn-contrib/MAPIE	200	repo	MAPIE：模型无关预测区间/保形预测/风险控制/可交换性检验
+https://mapie.readthedocs.io/en/stable/	200	docs	MAPIE 官方文档（分类/回归/时间序列保形教程）
+https://github.com/henrikbostrom/crepes	200	repo	crepes：标准/Mondrian 保形分类器、保形回归器、保形预测系统
+https://crepes.readthedocs.io/en/latest/	200	docs	crepes 官方文档（normalized/Mondrian/交换性 martingale）
+https://arxiv.org/abs/1905.03222	200	paper	Conformalized Quantile Regression (Romano et al. 2019)
+https://arxiv.org/abs/2103.09763	200	paper	Conformalized Survival Analysis (Candès et al. 2021)
+https://arxiv.org/abs/2412.09729	200	paper	Doubly Robust Conformalized Survival Analysis with Right-Censored Data
+https://arxiv.org/abs/2505.04568	200	paper	Conformal Survival Bands for Risk Screening under Right-Censoring
+https://arxiv.org/abs/2106.00170	200	paper	Adaptive Conformal Inference Under Distribution Shift (Gibbs & Candès)
+https://arxiv.org/abs/2107.07511	200	paper	A Gentle Introduction to Conformal Prediction and Distribution-Free UQ
+https://github.com/sebp/scikit-survival	200	repo	scikit-survival：基于 sklearn 的删失生存分析（Cox/KM/RSF/GBM）
+https://scikit-survival.readthedocs.io/en/stable/	200	docs	scikit-survival 文档（user guide 含 RSF/GBM survival）
+https://github.com/CamDavidsonPilon/lifelines	200	repo	lifelines：纯 Python 生存分析（KM/Cox/AFT）
+https://lifelines.readthedocs.io/en/latest/	200	docs	lifelines 文档（参数化 AFT 与 Cox/Kaplan-Meier）
+https://github.com/havakv/pycox	200	repo	pycox：PyTorch 离散时间生存模型（DeepHit/DeepSurv/PMF）
+https://github.com/chl8856/DeepHit	200	repo	DeepHit 官方实现（竞争风险、生存时间分布）
+https://arxiv.org/abs/1805.00917	200	paper	A Scalable Discrete-Time Survival Model for Neural Networks (Nnet-survival)
+https://github.com/Novartis/torchsurv	200	repo	torchsurv：PyTorch 深度生存模型 loss/metrics
+https://arxiv.org/abs/1606.00931	200	paper	DeepSurv: personalized treatment recommender system for survival
+https://lightgbm.readthedocs.io/en/latest/Parameters.html	200	docs	LightGBM 参数：objective=quantile 与 alpha
+https://catboost.ai/docs/en/concepts/loss-functions-regression	200	docs	CatBoost 回归损失：Quantile/MultiQuantile
+https://www.jmlr.org/papers/v7/meinshausen06a.html	200	paper	Quantile Regression Forests (Meinshausen 2006)
+https://github.com/zillow/quantile-forest	200	repo	quantile-forest：sklearn 兼容 QRF
+https://zillow.github.io/quantile-forest/	200	docs	quantile-forest 文档
+https://arxiv.org/abs/1910.03225	200	paper	NGBoost: Natural Gradient Boosting for Probabilistic Prediction
+https://scikit-learn.org/stable/auto_examples/ensemble/plot_gradient_boosting_quantile.html	200	docs	sklearn 示例：GBM 分位回归 + 预测区间
+https://raw.githubusercontent.com/tqdm/tqdm/master/tqdm/std.py	200	source	tqdm/std.py：EMA(smoothing=0.3) 估算速率与 ETA
+https://raw.githubusercontent.com/Textualize/rich/master/rich/progress.py	200	source	rich/progress.py：速度窗口 + TimeRemainingColumn max_refresh=0.5
+https://raw.githubusercontent.com/console-rs/indicatif/main/src/state.rs	200	source	indicatif/state.rs：双指数平滑 Estimator + 非单调保护
+https://arxiv.org/abs/1712.06796	200	paper	Built to Last or Built Too Fast? Evaluating Prediction Models for Build Times（Bisong et al., MSR 2017）
+https://arxiv.org/abs/1901.07142	200	paper	Towards Predicting the Impact of Software Changes on Building Activities
+https://bazel.build/advanced/performance/json-trace-profile	200	docs	Bazel JSON trace profile：critical path 与构建阶段耗时分析
+https://en.wikipedia.org/wiki/COCOMO	200	wiki	COCOMO/COCOMO II 基本模型与工作量公式
+https://arxiv.org/abs/2309.12449	200	paper	Dynamic Prediction of Delays in Software Projects using Delay Patterns and Bayesian Modeling
+https://arxiv.org/abs/1609.05563	200	paper	Negative Results for Software Effort Estimation
+https://arxiv.org/abs/1805.02896	200	paper	Survey and cross-benchmark comparison of remaining time prediction methods（业务过程监控）
+https://arxiv.org/abs/2404.06267	200	paper	PGTNet: Process Graph Transformer for remaining time prediction
+https://arxiv.org/abs/2503.14499	200	paper	Measuring AI Ability to Complete Long Software Tasks（METR time horizon）
+https://arxiv.org/abs/2511.19492	200	paper	Forecasting AI Time Horizon Under Compute Slowdowns
+https://arxiv.org/abs/2405.01614	200	paper	RULSurv: 早期故障检测 + 生存分析预测剩余寿命
+https://arxiv.org/abs/2607.04935	200	paper	TARE: Tail Aware Evaluation of HPC Job Runtime Prediction
+https://arxiv.org/abs/2604.00010	200	paper	Can LLMs Perceive Time? An Empirical Investigation
+https://arxiv.org/abs/2609.08589	200	paper	The Unreliable Progress Bar（LLM 自报进度可靠性）
+https://arxiv.org/abs/2508.03766	200	paper	LLM-Prior：LLM 抽取/聚合贝叶斯先验（含联邦先验聚合）
+https://arxiv.org/abs/2411.17284	200	paper	AutoElicit：用 LLM 抽取专家先验喂给贝叶斯预测模型
+https://arxiv.org/abs/2406.01860	200	paper	Eliciting the Priors of LLMs using Iterated In-Context Learning
+https://arxiv.org/abs/2509.14483	200	paper	An LLM-based multi-agent framework for agile effort estimation
+https://arxiv.org/abs/2603.06276	200	paper	Story Point Estimation Using Large Language Models
+https://arxiv.org/abs/2604.07931	200	paper	Robust Length Prediction under Heavy-Tailed Prompt-Conditioned Distributions
+https://arxiv.org/abs/2602.11812	200	paper	Predicting LLM Output Length via Entropy-Guided Representations（含渐进剩余长度预测）
+https://arxiv.org/abs/2408.00724	200	paper	Inference Scaling Laws: compute-optimal inference（成本/预算权衡）
